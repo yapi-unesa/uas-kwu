@@ -1,0 +1,269 @@
+/* admin.css - Styles specifically for the Admin/Owner Dashboard */
+body {
+  margin: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: #f4f7fa;
+}
+
+.admin-login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  background-color: #0b1c3d; /* Navy background */
+}
+
+.admin-login-box {
+  background: white;
+  padding: 3rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+  text-align: center;
+  width: 100%;
+  maxWidth: 400px;
+}
+
+.admin-login-box h2 {
+  margin-top: 0;
+  color: #0b1c3d;
+}
+
+.admin-input {
+  width: 100%;
+  padding: 12px;
+  margin: 15px 0;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.admin-btn {
+  width: 100%;
+  padding: 12px;
+  background-color: #fca311; /* Yellow/Orange accent */
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.admin-btn:hover {
+  background-color: #e0910f;
+}
+
+/* Dashboard Layout */
+.admin-dashboard {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.admin-header {
+  background-color: #0b1c3d;
+  color: white;
+  padding: 1rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+}
+
+.admin-logo {
+  font-size: 1.5rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.admin-logout {
+  background: transparent;
+  color: white;
+  border: 1px solid white;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.admin-logout:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.admin-main {
+  padding: 2rem;
+  flex: 1;
+}
+
+.admin-header-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.admin-header-title h1 {
+  color: #333;
+  margin: 0;
+}
+
+.admin-btn-refresh {
+  background-color: #0b1c3d;
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+/* Stats */
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  border-left: 5px solid #0b1c3d;
+}
+
+.stat-highlight {
+  border-left: 5px solid #fca311;
+  background-color: #fff9f0;
+}
+
+.stat-value {
+  font-size: 2rem;
+  font-weight: 900;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.stat-label {
+  color: #666;
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+/* Table */
+.admin-table-container {
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+  overflow: hidden;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th, .admin-table td {
+  padding: 15px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+}
+
+.admin-table th {
+  background-color: #f8f9fa;
+  color: #333;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+}
+
+.admin-item-list {
+  margin: 0;
+  padding-left: 20px;
+  color: #555;
+  font-size: 0.9rem;
+}
+
+.status-badge {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+}
+
+.status-success {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.status-pending {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.status-failed {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+/* Charts and Sections */
+.admin-charts-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2rem;
+}
+
+.admin-chart-card {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+}
+
+.admin-chart-card h3 {
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  color: #0b1c3d;
+  font-size: 1.1rem;
+}
+
+.admin-section-title {
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  border-bottom: 2px solid #eee;
+  padding-bottom: 10px;
+}
+
+.admin-section-title h2 {
+  margin: 0;
+  color: #333;
+  font-size: 1.3rem;
+}
+
+/* Stock Management Buttons */
+.qty-btn-admin {
+  background: #f1f3f5;
+  border: 1px solid #ddd;
+  color: #333;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 5px;
+  font-weight: bold;
+  font-size: 0.85rem;
+}
+
+.qty-btn-admin:hover:not(:disabled) {
+  background: #e2e6ea;
+}
+
+.qty-btn-admin:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
