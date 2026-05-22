@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import './index.css';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 function Shop() {
   const [products, setProducts] = useState([]);
   const [cart, setCart] = useState([]);
@@ -8,7 +10,7 @@ function Shop() {
   const [isCheckingOut, setIsCheckingOut] = useState(false);
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/products')
+    fetch(`${API_BASE_URL}/api/products`)
       .then(res => res.json())
       .then(data => {
         setProducts(data);
@@ -53,7 +55,7 @@ function Shop() {
     setIsCheckingOut(true);
     try {
       // 1. Simpan pesanan ke database dan minta token Midtrans
-      const response = await fetch('http://localhost:3000/api/orders', {
+      const response = await fetch(`${API_BASE_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,7 +76,7 @@ function Shop() {
         window.snap.pay(data.token, {
           onSuccess: function(result) {
             // Update database to success manually for the demo
-            fetch(`http://localhost:3000/api/orders/${data.orderId}/success`, {
+            fetch(`${API_BASE_URL}/api/orders/${data.orderId}/success`, {
               method: 'PUT'
             }).then(() => {
               alert("Pembayaran berhasil dan database telah diupdate!");

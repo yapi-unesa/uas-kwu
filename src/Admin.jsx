@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import './admin.css';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState('');
@@ -9,6 +11,15 @@ function Admin() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // States for dynamic product creation modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newProductName, setNewProductName] = useState('');
+  const [newProductDesc, setNewProductDesc] = useState('');
+  const [newProductImage, setNewProductImage] = useState('');
+  const [newVariants, setNewVariants] = useState([
+    { name: 'Porsi Standar', price: 8000, stock: 50 }
+  ]);
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -24,8 +35,8 @@ function Admin() {
   const fetchData = () => {
     setLoading(true);
     Promise.all([
-      fetch('http://localhost:3000/api/orders/all').then(res => res.json()),
-      fetch('http://localhost:3000/api/products').then(res => res.json())
+      fetch(`${API_BASE_URL}/api/orders/all`).then(res => res.json()),
+      fetch(`${API_BASE_URL}/api/products`).then(res => res.json())
     ]).then(([ordersData, productsData]) => {
       setOrders(ordersData);
       setProducts(productsData);
@@ -40,7 +51,7 @@ function Admin() {
     const newStock = currentStock + delta;
     if (newStock < 0) return;
 
-    fetch(`http://localhost:3000/api/variants/${variantId}/stock`, {
+    fetch(`${API_BASE_URL}/api/variants/${variantId}/stock`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ stock: newStock })
@@ -50,6 +61,100 @@ function Admin() {
       fetchData(); // Refresh data setelah update
     })
     .catch(err => console.error("Gagal update stok:", err));
+  };
+
+  const handleDeleteProduct = (productId, productName) => {
+    if (window.confirm(`Peringatan: Apakah Anda yakin ingin menghapus menu "${productName}"?\n\nMenghapus menu yang sudah pernah dibeli akan mempengaruhi data statistik penjualan di Dashboard.`)) {
+      fetch(`${API_BASE_URL}/api/products/${productId}`, {
+        method: 'DELETE'
+      })
+      .then(res => res.json())
+      .then(() => {
+        alert("Menu berhasil dihapus!");
+        fetchData();
+      })
+      .catch(err => {
+        console.error("Gagal menghapus produk:", err);
+        alert("Gagal menghapus menu.");
+      });
+    }
+  };
+
+  const handleCreateProduct = (e) => {
+    e.preventDefault();
+    if (!newProductName.trim()) {
+      alert("Nama menu wajib diisi!");
+      return;
+    }
+    if (newVariants.length === 0) {
+      alert("Minimal harus ada 1 varian!");
+      return;
+    }
+
+    // Validate variants
+    for (let v of newVariants) {
+      if (!v.name.trim()) {
+        alert("Nama varian wajib diisi!");
+        return;
+      }
+      if (v.price <= 0) {
+        alert("Harga varian harus lebih besar dari 0!");
+        return;
+      }
+      if (v.stock < 0) {
+        alert("Stok tidak boleh bernilai negatif!");
+        return;
+      }
+    }
+
+    const payload = {
+      name: newProductName,
+      desc: newProductDesc,
+      image: newProductImage.trim() || '/assets/kentang_tingtung.png',
+      variants: newVariants
+    };
+
+    fetch(`${API_BASE_URL}/api/products`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(res => res.json())
+    .then(() => {
+      alert("Menu baru berhasil ditambahkan!");
+      setIsModalOpen(false);
+      // Reset form fields
+      setNewProductName('');
+      setNewProductDesc('');
+      setNewProductImage('');
+      setNewVariants([{ name: 'Porsi Standar', price: 8000, stock: 50 }]);
+      fetchData();
+    })
+    .catch(err => {
+      console.error("Gagal menambahkan menu baru:", err);
+      alert("Terjadi kesalahan saat menambahkan menu.");
+    });
+  };
+
+  const addVariantRow = () => {
+    setNewVariants(prev => [...prev, { name: '', price: 8000, stock: 50 }]);
+  };
+
+  const removeVariantRow = (index) => {
+    if (newVariants.length === 1) return;
+    setNewVariants(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const updateVariantRow = (index, field, value) => {
+    setNewVariants(prev => prev.map((item, idx) => {
+      if (idx === index) {
+        return { 
+          ...item, 
+          [field]: field === 'price' || field === 'stock' ? (value === '' ? '' : Number(value)) : value 
+        };
+      }
+      return item;
+    }));
   };
 
   if (!isAuthenticated) {
@@ -81,7 +186,7 @@ function Admin() {
   const productSalesMap = {};
   successfulOrders.forEach(order => {
     order.items.forEach(item => {
-      const name = item.product_name;
+      const name = item.product_name || '[Menu Dihapus]';
       if (!productSalesMap[name]) productSalesMap[name] = 0;
       productSalesMap[name] += item.quantity;
     });
@@ -117,7 +222,10 @@ function Admin() {
       <main className="admin-main">
         <div className="admin-header-title">
           <h1>Dashboard Pesanan & Stok</h1>
-          <button onClick={fetchData} className="admin-btn-refresh">Refresh Data</button>
+          <div className="admin-header-actions">
+            <button onClick={() => setIsModalOpen(true)} className="admin-btn-accent">Tambah Menu Baru</button>
+            <button onClick={fetchData} className="admin-btn-refresh">Refresh Data</button>
+          </div>
         </div>
 
         {/* Stats Row */}
@@ -172,6 +280,58 @@ function Admin() {
                <p className="text-center" style={{marginTop: '50px', color: '#888'}}>Belum ada produk terjual</p>
             )}
           </div>
+        </div>
+
+        {/* Product Management Table */}
+        <div className="admin-section-title">
+          <h2>Manajemen Menu & Produk</h2>
+        </div>
+        <div className="admin-table-container" style={{marginBottom: '3rem'}}>
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Gambar</th>
+                <th>Nama Menu</th>
+                <th>Deskripsi</th>
+                <th>Varian & Harga</th>
+                <th>Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="text-center">Belum ada menu produk. Silakan tambahkan!</td>
+                </tr>
+              ) : (
+                products.map((product) => (
+                  <tr key={product.id}>
+                    <td>
+                      <img src={product.image} alt={product.name} className="admin-product-img" />
+                    </td>
+                    <td><strong>{product.name}</strong></td>
+                    <td style={{maxWidth: '300px', color: '#666', fontSize: '0.9rem'}}>{product.desc || '-'}</td>
+                    <td>
+                      <ul className="admin-item-list" style={{paddingLeft: '15px'}}>
+                        {product.variants.map((v) => (
+                          <li key={v.id}>
+                            {v.name}: <strong>Rp {v.price.toLocaleString('id-ID')}</strong> (Stok: {v.stock})
+                          </li>
+                        ))}
+                      </ul>
+                    </td>
+                    <td>
+                      <button 
+                        onClick={() => handleDeleteProduct(product.id, product.name)} 
+                        className="admin-btn-danger"
+                      >
+                        Hapus
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
 
         {/* Stock Management Table */}
@@ -245,7 +405,7 @@ function Admin() {
                         <ul className="admin-item-list">
                           {order.items.map((item, idx) => (
                             <li key={idx}>
-                              {item.quantity}x {item.product_name} ({item.variant_name})
+                              {item.quantity}x {item.product_name || '[Menu Dihapus]'} ({item.variant_name || 'Varian Dihapus'})
                             </li>
                           ))}
                         </ul>
@@ -264,6 +424,115 @@ function Admin() {
           )}
         </div>
       </main>
+
+      {/* Modal Form Tambah Menu Baru */}
+      {isModalOpen && (
+        <div className="admin-modal-overlay" onClick={() => setIsModalOpen(false)}>
+          <div className="admin-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="admin-modal-header">
+              <h3>Tambah Menu Produk Baru</h3>
+              <button className="admin-modal-close" onClick={() => setIsModalOpen(false)}>&times;</button>
+            </div>
+            <form onSubmit={handleCreateProduct}>
+              <div className="admin-modal-body">
+                <div className="admin-form-group">
+                  <label>Nama Menu *</label>
+                  <input 
+                    type="text" 
+                    placeholder="Contoh: Sosis Bakar"
+                    value={newProductName}
+                    onChange={(e) => setNewProductName(e.target.value)}
+                    className="admin-input"
+                    required
+                  />
+                </div>
+                
+                <div className="admin-form-group">
+                  <label>Deskripsi Menu</label>
+                  <textarea 
+                    placeholder="Contoh: Sosis sapi panggang lezat dengan bumbu barbeque..."
+                    value={newProductDesc}
+                    onChange={(e) => setNewProductDesc(e.target.value)}
+                    className="admin-form-textarea"
+                  />
+                </div>
+                
+                <div className="admin-form-group">
+                  <label>Path/URL Gambar (Kosongkan untuk default)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Contoh: /assets/kentang_tingtung.png"
+                    value={newProductImage}
+                    onChange={(e) => setNewProductImage(e.target.value)}
+                    className="admin-input"
+                  />
+                </div>
+                
+                <div className="admin-form-group">
+                  <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span>Varian Ukuran / Porsi *</span>
+                    <button 
+                      type="button" 
+                      onClick={addVariantRow} 
+                      className="qty-btn-admin" 
+                      style={{ fontSize: '0.8rem', padding: '4px 8px' }}
+                    >
+                      + Tambah Varian
+                    </button>
+                  </label>
+                  
+                  <div className="admin-variant-builder">
+                    {newVariants.map((variant, index) => (
+                      <div key={index} className="admin-variant-row">
+                        <input 
+                          type="text" 
+                          placeholder="Nama Varian (Small/Large)" 
+                          value={variant.name}
+                          onChange={(e) => updateVariantRow(index, 'name', e.target.value)}
+                          required
+                        />
+                        <input 
+                          type="number" 
+                          placeholder="Harga (Rupiah)" 
+                          value={variant.price}
+                          min="1"
+                          onChange={(e) => updateVariantRow(index, 'price', e.target.value)}
+                          required
+                        />
+                        <input 
+                          type="number" 
+                          placeholder="Stok Awal" 
+                          value={variant.stock}
+                          min="0"
+                          onChange={(e) => updateVariantRow(index, 'stock', e.target.value)}
+                          required
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => removeVariantRow(index)} 
+                          className="admin-btn-danger"
+                          style={{ padding: '6px 10px', height: '36px', display: 'flex', alignItems: 'center' }}
+                          disabled={newVariants.length === 1}
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="admin-modal-footer">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="admin-btn-secondary">
+                  Batal
+                </button>
+                <button type="submit" className="admin-btn-accent" style={{ padding: '10px 20px' }}>
+                  Simpan Menu
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

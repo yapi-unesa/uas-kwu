@@ -6,7 +6,7 @@ const midtransClient = require('midtrans-client');
 require('dotenv').config();
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -327,6 +327,84 @@ app.put('/api/variants/:id/stock', (req, res) => {
       return res.status(500).json({ error: 'Failed to update stock' });
     }
     res.json({ message: 'Stock updated successfully' });
+  });
+});
+
+// 7. Add Product (with Variants)
+app.post('/api/products', (req, res) => {
+  const { name, desc, image, variants } = req.body;
+  
+  if (!name || !variants || variants.length === 0) {
+    return res.status(400).json({ error: 'Product name and variants are required' });
+  }
+
+  const productId = 'p_' + Date.now();
+  const imgUrl = image || '/assets/kentang_tingtung.png';
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+
+    db.run(
+      `INSERT INTO products (id, name, desc, image) VALUES (?, ?, ?, ?)`,
+      [productId, name, desc || '', imgUrl],
+      function(err) {
+        if (err) {
+          db.run("ROLLBACK");
+          return res.status(500).json({ error: 'Failed to create product' });
+        }
+
+        const stmt = db.prepare(`INSERT INTO variants (id, product_id, name, price, stock) VALUES (?, ?, ?, ?, ?)`);
+        
+        variants.forEach((v, index) => {
+          const variantId = `v_${Date.now()}_${index}`;
+          stmt.run(variantId, productId, v.name, v.price, v.stock !== undefined ? v.stock : 50);
+        });
+
+        stmt.finalize((stmtErr) => {
+          if (stmtErr) {
+            db.run("ROLLBACK");
+            return res.status(500).json({ error: 'Failed to insert variants' });
+          }
+
+          db.run("COMMIT", (commitErr) => {
+            if (commitErr) {
+              return res.status(500).json({ error: 'Transaction commit failed' });
+            }
+            res.status(201).json({ message: 'Product created successfully', productId });
+          });
+        });
+      }
+    );
+  });
+});
+
+// 8. Delete Product (and its Variants)
+app.delete('/api/products/:id', (req, res) => {
+  const productId = req.params.id;
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+
+    db.run(`DELETE FROM variants WHERE product_id = ?`, [productId], function(err) {
+      if (err) {
+        db.run("ROLLBACK");
+        return res.status(500).json({ error: 'Failed to delete variants' });
+      }
+
+      db.run(`DELETE FROM products WHERE id = ?`, [productId], function(err) {
+        if (err) {
+          db.run("ROLLBACK");
+          return res.status(500).json({ error: 'Failed to delete product' });
+        }
+
+        db.run("COMMIT", (commitErr) => {
+          if (commitErr) {
+            return res.status(500).json({ error: 'Transaction commit failed' });
+          }
+          res.json({ message: 'Product deleted successfully' });
+        });
+      });
+    });
   });
 });
 
