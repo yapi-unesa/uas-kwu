@@ -517,6 +517,21 @@ main {
   width: 100%;
 }
 
+.checkout-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.checkout-input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  font-soze: 14px;
+}
+
 .empty-cart {
   text-align: center;
   color: #999;
