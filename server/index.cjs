@@ -3,10 +3,11 @@ const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const midtransClient = require('midtrans-client');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -100,6 +101,38 @@ function initDb() {
   });
 }
 
+// Session store for authenticated admin users
+const activeSessions = new Set();
+
+// Middleware to authenticate admin requests
+function authenticateAdmin(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token format' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  if (!activeSessions.has(token)) {
+    return res.status(401).json({ error: 'Unauthorized: Session has expired or is invalid' });
+  }
+
+  next();
+}
+
+// Admin login endpoint
+app.post('/api/admin/login', (req, res) => {
+  const { password } = req.body;
+  const adminPassword = process.env.ADMIN_PASSWORD || 'admin123';
+
+  if (password === adminPassword) {
+    const token = crypto.randomBytes(32).toString('hex');
+    activeSessions.add(token);
+    return res.json({ success: true, token });
+  } else {
+    return res.status(401).json({ error: 'Password salah!' });
+  }
+});
+
 // 1. Get all products with their variants
 app.get('/api/products', (req, res) => {
   const query = `
@@ -133,7 +166,7 @@ app.get('/api/products', (req, res) => {
 });
 
 // 2. Create a new product (Admin)
-app.post('/api/products', (req, res) => {
+app.post('/api/products', authenticateAdmin, (req, res) => {
   const { name, desc, image, variantName, price, stock } = req.body;
   if (!name || !price) {
     return res.status(400).json({ error: 'Name and price are required' });
@@ -164,7 +197,7 @@ app.post('/api/products', (req, res) => {
 });
 
 // 3. Delete a product (Admin)
-app.delete('/api/products/:id', (req, res) => {
+app.delete('/api/products/:id', authenticateAdmin, (req, res) => {
   const productId = req.params.id;
 
   db.serialize(() => {
@@ -331,7 +364,7 @@ app.put('/api/orders/:id/success', (req, res) => {
 });
 
 // 6. Get all orders for Admin Dashboard
-app.get('/api/orders/all', (req, res) => {
+app.get('/api/orders/all', authenticateAdmin, (req, res) => {
   const query = `
     SELECT 
       o.id as order_id, o.total_amount, o.status, o.created_at,
@@ -375,7 +408,7 @@ app.get('/api/orders/all', (req, res) => {
 });
 
 // 7. Update Stock manually from Admin Dashboard
-app.put('/api/variants/:id/stock', (req, res) => {
+app.put('/api/variants/:id/stock', authenticateAdmin, (req, res) => {
   const variantId = req.params.id;
   const { stock } = req.body;
   

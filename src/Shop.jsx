@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import './index.css';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 function Shop() {
   const [products, setProducts] = useState([]);
@@ -10,7 +12,7 @@ function Shop() {
   const [customerAddress, setCustomerAddress] = useState('');
 
   useEffect(() => {
-    fetch('http://localhost:3000/api/products')
+    fetch(`${API_URL}/api/products`)
       .then(res => res.json())
       .then(data => {
         setProducts(data);
@@ -60,7 +62,7 @@ function Shop() {
     }
     try {
       // 1. Simpan pesanan ke database dan minta token Midtrans
-      const response = await fetch('http://localhost:3000/api/orders', {
+      const response = await fetch(`${API_URL}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -82,7 +84,7 @@ function Shop() {
         // 2. Panggil Midtrans Snap Pop-up bawaan asli (Asli bukan mock)
         window.snap.pay(data.token, {
           onSuccess: function(result) {
-              fetch(`http://localhost:3000/api/orders/${data.orderId}/success`, {
+              fetch(`${API_URL}/api/orders/${data.orderId}/success`, {
                 method: 'PUT'
               }).then(() => {
                 // Buat daftar produk
@@ -270,9 +272,9 @@ function Shop() {
 }
 
 function ProductCard({ product, onAdd }) {
-  if (!product.variants || product.variants.length === 0) return null;
+  const [selectedVariant, setSelectedVariant] = useState(() => product.variants && product.variants.length > 0 ? product.variants[0] : null);
 
-  const [selectedVariant, setSelectedVariant] = useState(product.variants[0]);
+  if (!product.variants || product.variants.length === 0) return null;
 
   return (
     <div className="product-card">

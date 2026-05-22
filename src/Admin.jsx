@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import './admin.css';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 function Admin() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [token, setToken] = useState(() => sessionStorage.getItem('admin_token') || '');
+  const [isAuthenticated, setIsAuthenticated] = useState(() => !!sessionStorage.getItem('admin_token'));
   const [password, setPassword] = useState('');
   
   const [orders, setOrders] = useState([]);
@@ -11,22 +14,27 @@ function Admin() {
   const [loading, setLoading] = useState(false);
   const [newProduct, setNewProduct] = useState({ name: '', desc: '', image: '', variantName: '', price: '', stock: '' });
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-    if (password === 'admin123') {
-      setIsAuthenticated(true);
-      fetchData();
-    } else {
-      alert("Password salah!");
-      setPassword('');
-    }
-  };
+  const handleLogout = useCallback(() => {
+    sessionStorage.removeItem('admin_token');
+    setToken('');
+    setIsAuthenticated(false);
+  }, []);
 
-  const fetchData = () => {
+  const fetchData = useCallback(() => {
+    if (!token) return;
     setLoading(true);
+
+    const headers = { 'Authorization': `Bearer ${token}` };
+
     Promise.all([
-      fetch('http://localhost:3000/api/orders/all').then(res => res.json()),
-      fetch('http://localhost:3000/api/products').then(res => res.json())
+      fetch(`${API_URL}/api/orders/all`, { headers }).then(res => {
+        if (res.status === 401) {
+          handleLogout();
+          throw new Error("Sesi login kedaluwarsa!");
+        }
+        return res.json();
+      }),
+      fetch(`${API_URL}/api/products`).then(res => res.json())
     ]).then(([ordersData, productsData]) => {
       setOrders(ordersData);
       setProducts(productsData);
@@ -35,18 +43,60 @@ function Admin() {
       console.error("Gagal mengambil data:", err);
       setLoading(false);
     });
+  }, [token, handleLogout]);
+
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      const timer = setTimeout(() => {
+        fetchData();
+      }, 0);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, token, fetchData]);
+
+  const handleLogin = (e) => {
+    e.preventDefault();
+    fetch(`${API_URL}/api/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password })
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("Password salah!");
+      return res.json();
+    })
+    .then(data => {
+      if (data.token) {
+        sessionStorage.setItem('admin_token', data.token);
+        setToken(data.token);
+        setIsAuthenticated(true);
+      }
+    })
+    .catch(err => {
+      alert(err.message);
+      setPassword('');
+    });
   };
 
   const updateStock = (variantId, currentStock, delta) => {
     const newStock = currentStock + delta;
     if (newStock < 0) return;
 
-    fetch(`http://localhost:3000/api/variants/${variantId}/stock`, {
+    fetch(`${API_URL}/api/variants/${variantId}/stock`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify({ stock: newStock })
     })
-    .then(res => res.json())
+    .then(res => {
+      if (res.status === 401) {
+        handleLogout();
+        throw new Error("Sesi login kedaluwarsa!");
+      }
+      return res.json();
+    })
     .then(() => {
       fetchData(); // Refresh data setelah update
     })
@@ -55,12 +105,19 @@ function Admin() {
 
   const handleAddProduct = (e) => {
     e.preventDefault();
-    fetch('http://localhost:3000/api/products', {
+    fetch(`${API_URL}/api/products`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
       body: JSON.stringify(newProduct)
     })
     .then(res => {
+      if (res.status === 401) {
+        handleLogout();
+        throw new Error("Sesi login kedaluwarsa!");
+      }
       if (!res.ok) throw new Error("Gagal menambah produk");
       return res.json();
     })
@@ -74,10 +131,17 @@ function Admin() {
 
   const handleDeleteProduct = (productId) => {
     if (window.confirm("Apakah Anda yakin ingin menghapus menu ini secara permanen?")) {
-      fetch(`http://localhost:3000/api/products/${productId}`, {
-        method: 'DELETE'
+      fetch(`${API_URL}/api/products/${productId}`, {
+        method: 'DELETE',
+        headers: { 
+          'Authorization': `Bearer ${token}`
+        }
       })
       .then(res => {
+        if (res.status === 401) {
+          handleLogout();
+          throw new Error("Sesi login kedaluwarsa!");
+        }
         if (!res.ok) throw new Error("Gagal menghapus produk");
         return res.json();
       })
@@ -148,7 +212,7 @@ function Admin() {
     <div className="admin-dashboard">
       <header className="admin-header">
         <div className="admin-logo">KTG Owner Panel</div>
-        <button className="admin-logout" onClick={() => setIsAuthenticated(false)}>Logout</button>
+        <button className="admin-logout" onClick={handleLogout}>Logout</button>
       </header>
 
       <main className="admin-main">
