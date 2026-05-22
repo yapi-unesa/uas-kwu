@@ -9,6 +9,7 @@ function Admin() {
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [newProduct, setNewProduct] = useState({ name: '', desc: '', image: '', variantName: '', price: '', stock: '' });
 
   const handleLogin = (e) => {
     e.preventDefault();
@@ -50,6 +51,42 @@ function Admin() {
       fetchData(); // Refresh data setelah update
     })
     .catch(err => console.error("Gagal update stok:", err));
+  };
+
+  const handleAddProduct = (e) => {
+    e.preventDefault();
+    fetch('http://localhost:3000/api/products', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newProduct)
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("Gagal menambah produk");
+      return res.json();
+    })
+    .then(() => {
+      alert("Produk berhasil ditambahkan!");
+      setNewProduct({ name: '', desc: '', image: '', variantName: '', price: '', stock: '' });
+      fetchData();
+    })
+    .catch(err => alert(err.message));
+  };
+
+  const handleDeleteProduct = (productId) => {
+    if (window.confirm("Apakah Anda yakin ingin menghapus menu ini secara permanen?")) {
+      fetch(`http://localhost:3000/api/products/${productId}`, {
+        method: 'DELETE'
+      })
+      .then(res => {
+        if (!res.ok) throw new Error("Gagal menghapus produk");
+        return res.json();
+      })
+      .then(() => {
+        alert("Produk berhasil dihapus!");
+        fetchData();
+      })
+      .catch(err => alert(err.message));
+    }
   };
 
   if (!isAuthenticated) {
@@ -174,9 +211,45 @@ function Admin() {
           </div>
         </div>
 
+        {/* Add Product Form */}
+        <div className="admin-section-title">
+          <h2>Tambah Menu Baru</h2>
+        </div>
+        <div className="admin-add-product-card">
+          <form onSubmit={handleAddProduct} className="add-product-form">
+            <div className="form-group">
+              <label>Nama Menu</label>
+              <input type="text" required value={newProduct.name} onChange={e => setNewProduct({...newProduct, name: e.target.value})} placeholder="Contoh: Sosis Bakar" />
+            </div>
+            <div className="form-group">
+              <label>Deskripsi Singkat</label>
+              <input type="text" value={newProduct.desc} onChange={e => setNewProduct({...newProduct, desc: e.target.value})} placeholder="Sosis sapi asli dibakar lezat..." />
+            </div>
+            <div className="form-group">
+              <label>URL Gambar (Opsional)</label>
+              <input type="text" value={newProduct.image} onChange={e => setNewProduct({...newProduct, image: e.target.value})} placeholder="https://..." />
+            </div>
+            <div className="form-row">
+              <div className="form-group">
+                <label>Nama Varian (Opsional)</label>
+                <input type="text" value={newProduct.variantName} onChange={e => setNewProduct({...newProduct, variantName: e.target.value})} placeholder="Regular" />
+              </div>
+              <div className="form-group">
+                <label>Harga (Rp)</label>
+                <input type="number" required value={newProduct.price} onChange={e => setNewProduct({...newProduct, price: e.target.value})} placeholder="10000" />
+              </div>
+              <div className="form-group">
+                <label>Stok Awal</label>
+                <input type="number" required value={newProduct.stock} onChange={e => setNewProduct({...newProduct, stock: e.target.value})} placeholder="50" />
+              </div>
+            </div>
+            <button type="submit" className="btn btn-primary">Simpan Menu Baru</button>
+          </form>
+        </div>
+
         {/* Stock Management Table */}
         <div className="admin-section-title">
-          <h2>Manajemen Stok Inventaris</h2>
+          <h2>Manajemen Menu & Stok</h2>
         </div>
         <div className="admin-table-container" style={{marginBottom: '3rem'}}>
           <table className="admin-table">
@@ -193,7 +266,12 @@ function Admin() {
               {products.map((product) => (
                 product.variants.map((v, i) => (
                   <tr key={v.id}>
-                    {i === 0 ? <td rowSpan={product.variants.length}><strong>{product.name}</strong></td> : null}
+                    {i === 0 ? (
+                      <td rowSpan={product.variants.length}>
+                        <strong>{product.name}</strong><br/>
+                        <button className="btn-delete" onClick={() => handleDeleteProduct(product.id)}>Hapus Menu</button>
+                      </td>
+                    ) : null}
                     <td>{v.name}</td>
                     <td>Rp {v.price.toLocaleString('id-ID')}</td>
                     <td>

@@ -132,7 +132,68 @@ app.get('/api/products', (req, res) => {
   });
 });
 
-// 2. Create a new order & request Midtrans Token
+// 2. Create a new product (Admin)
+app.post('/api/products', (req, res) => {
+  const { name, desc, image, variantName, price, stock } = req.body;
+  if (!name || !price) {
+    return res.status(400).json({ error: 'Name and price are required' });
+  }
+
+  const productId = 'p' + Date.now();
+  const variantId = 'v' + Date.now();
+  const vName = variantName || 'Regular';
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    const insertProduct = db.prepare(`INSERT INTO products (id, name, desc, image) VALUES (?, ?, ?, ?)`);
+    insertProduct.run(productId, name, desc || '', image || '/assets/hero.png');
+    insertProduct.finalize();
+
+    const insertVariant = db.prepare(`INSERT INTO variants (id, product_id, name, price, stock) VALUES (?, ?, ?, ?, ?)`);
+    insertVariant.run(variantId, productId, vName, parseInt(price), parseInt(stock) || 0);
+    insertVariant.finalize();
+
+    db.run("COMMIT", (err) => {
+      if (err) {
+        db.run("ROLLBACK");
+        return res.status(500).json({ error: 'Transaction failed' });
+      }
+      res.json({ message: 'Product created successfully', id: productId });
+    });
+  });
+});
+
+// 3. Delete a product (Admin)
+app.delete('/api/products/:id', (req, res) => {
+  const productId = req.params.id;
+
+  db.serialize(() => {
+    db.run("BEGIN TRANSACTION");
+    
+    // First delete variants associated with the product
+    db.run(`DELETE FROM variants WHERE product_id = ?`, [productId], (err) => {
+      if (err) {
+        db.run("ROLLBACK");
+        return res.status(500).json({ error: 'Failed to delete variants' });
+      }
+      
+      // Then delete the product itself
+      db.run(`DELETE FROM products WHERE id = ?`, [productId], (err) => {
+        if (err) {
+          db.run("ROLLBACK");
+          return res.status(500).json({ error: 'Failed to delete product' });
+        }
+        
+        db.run("COMMIT", (commitErr) => {
+          if (commitErr) return res.status(500).json({ error: 'Transaction commit failed' });
+          res.json({ message: 'Product deleted successfully' });
+        });
+      });
+    });
+  });
+});
+
+// 4. Create a new order & request Midtrans Token
 app.post('/api/orders', (req, res) => {
   const { cart, totalAmount } = req.body;
   
@@ -232,7 +293,7 @@ app.post('/api/midtrans/webhook', (req, res) => {
     });
 });
 
-// 4. (Demo Purpose) Endpoint to manually mark order as success from Frontend and reduce stock
+// 5. (Demo Purpose) Endpoint to manually mark order as success from Frontend and reduce stock
 app.put('/api/orders/:id/success', (req, res) => {
   const localOrderId = req.params.id;
   
@@ -269,7 +330,7 @@ app.put('/api/orders/:id/success', (req, res) => {
   });
 });
 
-// 5. Get all orders for Admin Dashboard
+// 6. Get all orders for Admin Dashboard
 app.get('/api/orders/all', (req, res) => {
   const query = `
     SELECT 
@@ -313,7 +374,7 @@ app.get('/api/orders/all', (req, res) => {
   });
 });
 
-// 6. Update Stock manually from Admin Dashboard
+// 7. Update Stock manually from Admin Dashboard
 app.put('/api/variants/:id/stock', (req, res) => {
   const variantId = req.params.id;
   const { stock } = req.body;

@@ -120,7 +120,7 @@ function Shop() {
                 setCustomerAddress('');
             
               }).catch(e => console.error("Gagal update DB", e));
-            }
+            },
           onPending: function(result) {
             alert("Menunggu pembayaran Anda!");
             console.log(result);
