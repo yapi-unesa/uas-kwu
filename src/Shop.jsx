@@ -6,6 +6,8 @@ function Shop() {
   const [cart, setCart] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerAddress, setCustomerAddress] = useState('');
 
   useEffect(() => {
     fetch('http://localhost:3000/api/products')
@@ -51,6 +53,11 @@ function Shop() {
 
   const handleCheckout = async () => {
     setIsCheckingOut(true);
+    if (!customerName || !customerAddress) {
+      alert("Nama dan alamat wajib diisi!");
+      setIsCheckingOut(false);
+      return;
+    }
     try {
       // 1. Simpan pesanan ke database dan minta token Midtrans
       const response = await fetch('http://localhost:3000/api/orders', {
@@ -58,7 +65,9 @@ function Shop() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           cart: cart,
-          totalAmount: cartTotal
+          totalAmount: cartTotal,
+          customerName,
+          customerAddress
         })
       });
       
@@ -73,15 +82,45 @@ function Shop() {
         // 2. Panggil Midtrans Snap Pop-up bawaan asli (Asli bukan mock)
         window.snap.pay(data.token, {
           onSuccess: function(result) {
-            // Update database to success manually for the demo
-            fetch(`http://localhost:3000/api/orders/${data.orderId}/success`, {
-              method: 'PUT'
-            }).then(() => {
-              alert("Pembayaran berhasil dan database telah diupdate!");
-              console.log(result);
-              setCart([]);
-            }).catch(e => console.error("Gagal update DB", e));
-          },
+              fetch(`http://localhost:3000/api/orders/${data.orderId}/success`, {
+                method: 'PUT'
+              }).then(() => {
+                // Buat daftar produk
+                const itemList = cart.map(item =>
+                  `- ${item.product.name} (${item.variant.name}) x${item.qty}`
+                ).join('\n');
+                // Template pesan WA
+                const message = `
+            Halo Admin, saya sudah melakukan pembayaran.
+            
+            Nama: ${customerName}
+            Alamat: ${customerAddress}
+            
+            Pesanan:
+            ${itemList}
+            
+            Total: Rp ${cartTotal.toLocaleString('id-ID')}
+            
+            Mohon segera diproses ya admin.
+            `;
+            
+                // Nomor admin
+                const adminNumber = '628213195653';
+                // Redirect WhatsApp
+                window.open(
+                  `https://wa.me/${adminNumber}?text=${encodeURIComponent(message)}`,
+                  '_blank'
+                );
+            
+                alert("Pembayaran berhasil!");
+                console.log(result);
+            
+                setCart([]);
+                setCustomerName('');
+                setCustomerAddress('');
+            
+              }).catch(e => console.error("Gagal update DB", e));
+            }
           onPending: function(result) {
             alert("Menunggu pembayaran Anda!");
             console.log(result);
@@ -200,6 +239,22 @@ function Shop() {
         </div>
         {cart.length > 0 && (
           <div className="cart-footer">
+            <div className="checkout-form">
+              <input
+                type="text"
+                placeholder="Nama Pembeli"
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                className="checkout-input"
+              />
+            
+              <textarea
+                placeholder="Alamat Pembeli"
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                className="checkout-input"
+              />
+            </div>
             <div className="cart-total">
               <span>Total</span>
               <span>Rp {cartTotal.toLocaleString('id-ID')}</span>
